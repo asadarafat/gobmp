@@ -47,7 +47,7 @@ jobs:
 
           cat <<EOF > Dockerfile
           
-          FROM scratch
+          FROM ubuntu:latest
 
           ENV GOMAXPROCS=1
 
