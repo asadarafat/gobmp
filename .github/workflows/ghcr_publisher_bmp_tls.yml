@@ -43,7 +43,7 @@ jobs:
 
       - name: Generate Dockerfile dynamically
         run: |
-          TAG_NAME="${{ steps.vars.outputs.version }}"
+          TAG_NAME="${{ github.event.inputs.image_tag }}"
 
           cat <<EOF > Dockerfile
           
@@ -89,7 +89,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ steps.vars.outputs.version }}
+            type=raw,value=${{ github.event.inputs.image_tag }}
             type=raw,value=latest
 
       - name: Build and push Docker image
