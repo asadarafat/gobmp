@@ -34,12 +34,29 @@ jobs:
               && go install github.com/osrg/gobgp/v3/cmd/gobgp@v3.37.0
 
           FROM ubuntu:latest
+          USER root:root
+          RUN echo 'root:admin' | chpasswd
+
           RUN apt-get update && \
               apt-get install -y stunnel && \
+              apt-get install -y sudo iproute2 iputils-ping openssh-server vim wget libcunit1-dev libncurses-dev libssl-dev libjansson-dev libcmocka-dev libpcap-dev libjansson4 jq && \
               apt-get clean && rm -rf /var/lib/apt/lists/*
+
+          # Config SSH
+          RUN echo "HostKeyAlgorithms ssh-dss,ecdsa-sha2-nistp256,ssh-ed25519" >> /etc/ssh/ssh_config    
+          RUN echo "KexAlgorithms diffie-hellman-group1-sha1,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha1" >> /etc/ssh/ssh_config    
+          RUN service ssh restart
+
+          # Create admin user with sudo access
+          RUN useradd -rm -d /home/ubuntu -s /bin/bash -g root -G sudo -u 1001 suuser \
+              && echo 'suuser:suuser' | chpasswd \
+              && useradd -rm -d /home/ubuntu -s /bin/bash -g root -G sudo -u 1002 admin \
+              && echo 'admin:admin' | chpasswd
+
           COPY --from=builder /go/bin/gobgpd /usr/local/bin/gobgpd
           COPY --from=builder /go/bin/gobgp /usr/local/bin/gobgp
-          ENTRYPOINT ["/usr/local/bin/gobgpd"]
+          
+          ENTRYPOINT service ssh restart & bash
           DOCKER
 
       - name: Log in to GitHub Container Registry
