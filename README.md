@@ -2,255 +2,216 @@
   <img src="https://github.com/sbezverk/gobmp/blob/master/Hudson_Go_BMP_logo.png?raw=true" width="40%" height="40%">
 </p>
 
+# goBMP (asadarafat/gobmp fork)
 
- 
+This is a maintained fork of the original [sbezverk/gobmp](https://github.com/sbezverk/gobmp) project with additional features and enhancements.
 
-goBMP is an implementation of Open BMP (RFC 7854) protocol’s collector in go language.  Collected BGP information can be published to kafka topics, stored in the file in JSON format or printed to stdout.
+🚨 **Notably, this fork (`asadarafat/gobmp`) adds support for BMP over TLS (BMPS)** as defined in
+[draft-hmntsharma-bmp-over-tls](https://datatracker.ietf.org/doc/draft-hmntsharma-bmp-over-tls/02/), **which is not available in the original upstream repository.**
 
- 
+---
 
-goBMP is suitable to run as a standalone binary as well as a containerized workload, provided deployment yaml allows running it as a deployment in Kubernetes.
+## Overview
 
- 
+**goBMP** is an implementation of the [OpenBMP (RFC 7854)](https://datatracker.ietf.org/doc/html/rfc7854) collector protocol written in Go. It processes incoming BMP sessions and publishes the parsed BGP data to **Kafka**, **NATS**, **stdout**, or saves it to a file in **JSON format**.
 
-goBMP receives BGP updates as a part of Open BMP messages, goBMP parses them and generates records depending on BGP Update NLRI and AFI/SAFI.
+goBMP can run as a standalone binary, in a container, or as a Kubernetes deployment.
 
- 
+---
 
-List of currently supported NLRI and AFI/SAFI:
+## Features
 
- 
+* Receives and parses BMP messages (BGP updates).
+* Supports multiple BGP AFI/SAFI NLRIs.
+* Publishes to Kafka/NATS or dumps to file/stdout.
+* Exposes debugging and performance metrics via `pprof`.
+* Easily deployable in Kubernetes or Docker.
+* [Fork-specific] Support for TLS encryption (BMPS) as per [draft-hmntsharma-bmp-over-tls](https://datatracker.ietf.org/doc/draft-hmntsharma-bmp-over-tls/02/).
 
+---
 
-<table>
-  <tr>
-   <td>IPv4 Unicast
-   </td>
-   <td>1/1
-   </td>
-  </tr>
-  <tr>
-   <td>IPv4 Labeled Unicast
-   </td>
-   <td>1/4
-   </td>
-  </tr>
-  <tr>
-   <td>IPv6 Unicast
-   </td>
-   <td>2/1
-   </td>
-  </tr>
-  <tr>
-   <td>IPv6 Labeled Unicast
-   </td>
-   <td>2/4
-   </td>
-  </tr>
-  <tr>
-   <td>VPNv4 unicast
-   </td>
-   <td>1/128
-   </td>
-  </tr>
-  <tr>
-   <td>VPnv6 unicast
-   </td>
-   <td>2/128
-   </td>
-  </tr>
-  <tr>
-   <td>Link-state
-   </td>
-   <td>16388/71
-   </td>
-  </tr>
-  <tr>
-   <td>L2VPN (VPLS)
-   </td>
-   <td>25/65
-   </td>
-  </tr>
-  <tr>
-   <td>L2VPN (EVPN)
-   </td>
-   <td>25/70
-   </td>
-  </tr>
-  <tr>
-   <td>SR Policy for v4
-   </td>
-   <td>1/73
-   </td>
-  </tr>
-  <tr>
-  <td>SR Policy for v6
-   </td>
-   <td>2/73
-   </td>
-  </tr>
-</table>
+## Supported NLRI and AFI/SAFI
 
+| NLRI                 | AFI/SAFI |
+| -------------------- | -------- |
+| IPv4 Unicast         | 1/1      |
+| IPv4 Labeled Unicast | 1/4      |
+| IPv6 Unicast         | 2/1      |
+| IPv6 Labeled Unicast | 2/4      |
+| VPNv4 Unicast        | 1/128    |
+| VPNv6 Unicast        | 2/128    |
+| Link-State           | 16388/71 |
+| L2VPN (VPLS)         | 25/65    |
+| L2VPN (EVPN)         | 25/70    |
+| SR Policy (IPv4)     | 1/73     |
+| SR Policy (IPv6)     | 2/73     |
 
- 
+For additional support of extensions and drafts (e.g., SRv6, Flex-Algo), see:
+➡️ [Supported RFCs and Drafts](https://github.com/sbezverk/gobmp/blob/master/BMP.md)
 
- 
+---
 
-goBMP also supports a number of drafts for under development protocols and extensions, such as BGP LS extensions for SRv6 support, Flex Algo, Application Specific attributes etc. 
+## Record Format
 
-For the complete list of supported extensions and drafts follow this link: [Support RFCs and Drafts.](https://github.com/sbezverk/gobmp/blob/master/BMP.md)
+Each parsed BMP message is published using the structure defined in the [`types.go`](https://github.com/sbezverk/gobmp/blob/master/pkg/message/types.go) file inside the `message` package.
 
- 
+---
 
- 
+## 🚧 Project Status
 
-The structure of the each record which is published to kafka, nats, stored in the message file or printed to standard output, is defined in the package **_message_** [file types.go](https://github.com/sbezverk/gobmp/blob/master/pkg/message/types.go)
+goBMP is a **work in progress**. Many key AFI/SAFI types and BGP-LS attributes are supported, but contributions are welcome.
 
-## Building goBMP
+See [CHANGELOG.md](https://github.com/sbezverk/gobmp/blob/master/CHANGELOG.md) for the latest updates.
 
-```
+---
+
+## 🔧 Building
+
+```bash
 git clone https://github.com/sbezverk/gobmp
-
-cd   gobmp
-
+cd gobmp
 make gobmp
 ```
 
+> The binary will be available in `./bin`.
 
-The statically linked linux binary will be stored in ./bin sub folder.
+---
 
-## Running goBMP
+## ▶️ Running goBMP
 
-### As a binary
+### As a Binary
 
-```
-./bin/gobmp {list of parameters}
-```
-
-*goBMP parameters:*
-
-```
---destination-port={port} (default 5050)
+```bash
+./bin/gobmp --config=/path/to/gobmp.yaml
 ```
 
-When goBMP works in an intercept mode, it receives incoming BMP messages on the source port, makes a copy of BMP message and then transmits the message to the processing listening on a destination port.
+### Key Parameters
 
+| Parameter                         | Description                                                                      |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| `--config`                        | Path to config YAML file (default: `/etc/gobmp`, `$HOME/.gobmp`, or current dir) |
+| `--source-port`                   | Port to listen for BMP (default: `5000`)                                         |
+| `--destination-port`              | Forward BMP messages to this port (default: `5050`)                              |
+| `--intercept`                     | Intercept mode (`true/false`)                                                    |
+| `--dump`                          | Output destination: `file`, `console`, `kafka`, or `nats`                        |
+| `--msg-file`                      | File path for storing messages (default: `/tmp/messages.json`)                   |
+| `--kafka-server`                  | Kafka server address                                                             |
+| `--kafka-topic-retention-time-ms` | Kafka topic retention (default: `900000`)                                        |
+| `--nats-server`                   | NATS server URI                                                                  |
+| `--split-af`                      | Separate IPv4/IPv6 topics (`true/false`)                                         |
+| `--performance-port`              | Port for debugging via `/debug/pprof` (default: `56767`)                         |
+| `--v`                             | Log level (use `--v=6` for hex debug output)                                     |
 
-```
---dump={file|console}
-```
+## TLS / BMPS Support (Fork Exclusive)
 
-Dump processed BMP messages into a file or to the standard output.
+> 🛡️ **TLS/BMPS support is only available in this fork: [asadarafat/gobmp](https://github.com/asadarafat/gobmp)**
+> The original `sbezverk/gobmp` does **not** include BMP-over-TLS capabilities.
 
+To enable BMP over TLS, use:
 
-```
---intercept={true|false}
-```
-
-When intercept set "true", all incomming BMP messages will be processed and a copy of a message  will be sent to TCP port specified by destination-port.
-
-
-```
---kafka-server=”kafka server:port”
-```
-
-Kafka server TCP/IP address
-
-
-```
---msg-file={message file path and location} (default "/tmp/messages.json")
-```
-
-Full path and  file name to store messages when "dump=file"  
-
-
-```
---source-port={source-port} (default 5000)
+```bash
+--tls-port=1790
+--tls-cert=/etc/gobmp/server.crt
+--tls-key=/etc/gobmp/server.key
+--tls-ca=/etc/gobmp/ca.crt
 ```
 
-Port to listen for incoming BMP messages (default 5000)
+> TLS handshake and message flow fully comply with the IETF draft mentioned above.
+All BMP traffic is encrypted and authenticated via mutual TLS (`tls.Conn`).
 
-```
---tls-port={port}
---tls-cert={certificate file}
---tls-key={key file}
---tls-ca={ca file}
-```
+When these options are provided, goBMP additionally supports BMP over TLS (BMPS) connections by listening on the specified port using mutual TLS, as defined in [draft-hmntsharma-bmp-over-tls](https://datatracker.ietf.org/doc/draft-hmntsharma-bmp-over-tls/02/). 
 
-When these options are provided, goBMP additionally supports BMP over TLS (BMPS) connections by listening on the specified port using mutual TLS, as defined in [draft-hmntsharma-bmp-over-tls](https://datatracker.ietf.org/doc/draft-hmntsharma-bmp-over-tls/02/).
+Packet behaviour on the wire with BMPS enabled - a session begins with a standard mutual TLS handshake on the configured port. The server presents its certificate, the client responds with its own, and both certificates are verified against the configured certificate authorities (CAs). Once the handshake is successfully completed, the connection is fully encrypted. 
 
-Packet behaviour on the wire with BMPS enabled - a session begins with a standard mutual TLS handshake on the configured port. The server presents its certificate, the client responds with its own, and both certificates are verified against the configured certificate authorities (CAs). Once the handshake is successfully completed, the connection is fully encrypted.
+From that point onward, BMP messages are transmitted over the established TLS tunnel just as they would be over a plain TCP connection. The application reads BMP headers and payloads from a net.Conn, which is a tls.Conn in the case of BMPS. As a result, all packets on the wire are encrypted at the transport layer, ensuring both confidentiality and integrity of BMP data.
 
-From that point onward, BMP messages are transmitted over the established TLS tunnel just as they would be over a plain TCP connection. The application reads BMP headers and payloads from a `net.Conn`, which is a `tls.Conn` in the case of BMPS. As a result, all packets on the wire are encrypted at the transport layer, ensuring both confidentiality and integrity of BMP data.
+---
 
+### Using a YAML Config File
 
-```
---v=(1-7)
-```
+You can define all flags in a YAML file:
 
-Log level, please use --v=6 for debugging. Level 6 prints in hexadecimal format the incoming message. 
+```yaml
+source-port: 5000
+destination-port: 5050
+performance-port: 56767
 
-### As a kubernetes deployment
+tls-port: 0
+tls-cert: /etc/gobmp/server.crt
+tls-key: /etc/gobmp/server.key
+tls-ca: /etc/gobmp/ca.crt
 
-**goBMP** can be ran as a kubernetes workload. The deployment yaml file is located in *./deployment* folder. **goBMP** deployment exposes 2 ports,
-first port (by default 5000) is used for incoming BMP sessions, second port (56767) is used for performance monitoring, **goBMP** exposes standard golang 
-**pprof** endpoints.
+kafka-server: localhost:9092
+kafka-topic-retention-time-ms: 900000
+nats-server: nats://localhost:4222
+dump: kafka
+msg-file: /tmp/messages.json
 
-```
-kubectl create -f ./deployment/gobmp-standalone.yaml
-```
-
-To check the status of a deployment and services
-
-```
-kubectl get pod
+intercept: false
+split-af: true
 ```
 
-Expected output for gobmp pod
+Environment variables may also be used. Use uppercase and underscores (e.g., `SOURCE_PORT`, `KAFKA_SERVER`).
 
-```
-NAME                                READY   STATUS    RESTARTS   AGE
-gobmp-765db4dcd9-6nh2c              1/1     Running   0          12h
+---
 
-```
+## ☸️ Running in Kubernetes
 
-```
-kubectl get svc 
-```
+Apply the sample deployment:
 
-Expected output for gobmp service
-
-```
-NAME               TYPE        CLUSTER-IP       EXTERNAL-IP                 PORT(S)                      AGE
-gobmp              ClusterIP   10.224.249.86    192.168.80.254              5000/TCP,56767/TCP           17h
-
+```bash
+kubectl apply -f ./deployment/gobmp-standalone.yaml
 ```
 
-In order to establish BMP session between an external BMP speaker and **goBMP** application running in kubernetes, goBMP's port must be exposed externally, as in the case of the output provided above, where 192.168.80.254 is external address. The external BMP speaker will need to use **192.168.80.254:5000** to reach goBMP application.
+Monitor the status:
 
-### As a Docker container
-
-#### Quick start with RIS Live feed from RIPE
-
-Start gobmp daemon :
-
+```bash
+kubectl get pods
+kubectl get svc
 ```
+
+Example output:
+
+```bash
+NAME                      READY   STATUS    RESTARTS   AGE
+gobmp-xxx-xxx             1/1     Running   0          12h
+
+NAME     TYPE       CLUSTER-IP   EXTERNAL-IP      PORT(S)              AGE
+gobmp    ClusterIP  10.XX.X.XX   192.168.80.254   5000/TCP,56767/TCP   17h
+```
+
+> To receive BMP data externally, ensure port `5000` is exposed via a `Service`.
+
+---
+
+## 🐳 Running in Docker
+
+### Quickstart using RIPE RIS Live Feed
+
+Start goBMP collector:
+
+```bash
 sudo docker run --net=host sbezverk/gobmp --dump=console
 ```
 
-Start bgp live feed from RIPE (converted to BMP) :
+Start BMP feed converter:
 
-```
+```bash
 sudo docker run --net=host sbezverk/ris2bmp:1
 ```
 
-Sample output :
+Example output:
 
+```json
+{"action":"add", "peer_ip":"80.81.195.241", "prefix":"223.104.44.0", "origin_as":56048, ...}
 ```
-gobmp: 06:36:26.088307 {MsgType:7 MsgHash: Msg:{"action":"add","base_attrs":{"base_attr_hash":"c447165a4239db770f610e30dc5df7a7","origin":"igp","as_path":[49697,41047,24961,33891,58453,9808,56048],"as_path_count":7,"nexthop":"80.81.195.241","is_atomic_agg":false,"community_list":"49697:2302, 49697:2500","large_community_list":"24961:1:276, 24961:2:1, 24961:2:150, 24961:2:155, 24961:2:276, 24961:3:1, 24961:4:9002, 24961:5:9002, 24961:6:1, 24961:7:33891, 24961:9:4"},"peer_hash":"75fdb22262697e4b0fcc06f7a8d1496c","peer_ip":"80.81.195.241","peer_asn":49697,"timestamp":"Sep  9 06:34:58.000000","prefix":"223.104.44.0","prefix_len":24,"is_ipv4":true,"origin_as":56048,"nexthop":"80.81.195.241","is_nexthop_ipv4":true,"is_prepolicy":false,"is_adj_rib_in":false}}
-```
 
-## Status
+---
 
-**goBMP** is work in progress, even though a considerable number of AFI/SAFI and BGP-LS attributes are processed, there is still a lot of work for contribution.
-See [CHANGELOG.md](https://github.com/sbezverk/gobmp/blob/master/CHANGELOG.md) for latest updates to this project.
+## 📎 Links
+
+* [RFC 7854 – BMP](https://datatracker.ietf.org/doc/html/rfc7854)
+* [Supported Drafts & Extensions](https://github.com/sbezverk/gobmp/blob/master/BMP.md)
+* [Message Format Spec (`types.go`)](https://github.com/sbezverk/gobmp/blob/master/pkg/message/types.go)
+* [Deployment YAML](https://github.com/sbezverk/gobmp/tree/master/deployment)
+* [Changelog](https://github.com/sbezverk/gobmp/blob/master/CHANGELOG.md)
