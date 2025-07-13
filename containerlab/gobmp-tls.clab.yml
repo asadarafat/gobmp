@@ -1,0 +1,35 @@
+name: gobmp-tls
+topology:
+
+  nodes:
+    gobmp:
+      kind: linux
+      image: ghcr.io/asadarafat/gobmp:v1.0.4-alpha-tls
+      binds:
+        - configs/gobmp-startup.sh:/opt/gobmp-startup.sh:rw
+        - certs/ca.crt:/ca.crt
+        - certs/server.crt:/client.crt
+        - certs/server.key:/client.key
+
+      exec:
+        - 'bash /opt/gobmp-startup.sh'
+
+    gobgp-stunnel:
+      kind: linux
+      image: ghcr.io/asadarafat/gobgp-stunnel:v3.37.0
+      binds:
+        - configs/gobgp-stunnel-startup.sh:/opt/gobgp-stunnel-startup.sh:rw
+        - certs/ca.crt:/etc/stunnel/ca.crt
+        - certs/server.crt:/etc/stunnel/server.crt
+        - certs/server.key:/etc/stunnel/server.key
+        - configs/stunnel.conf:/etc/stunnel/stunnel.conf
+        - configs/gobgp-bmp-test.conf:/etc/gobgp/gobgp-bmp-test.conf
+      exec:
+        - 'bash /opt/gobgp-stunnel-startup.sh'
+
+  links:
+    - endpoints: [ gobmp:eth1, gobgp-stunnel:eth1 ] 
+
+
+
+
