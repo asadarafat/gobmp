@@ -8,7 +8,7 @@ require (
 	github.com/IBM/sarama v1.43.3
 	github.com/go-test/deep v1.0.8
 	github.com/golang/glog v1.2.4
-	github.com/nats-io/nats.go v1.28.0
+	github.com/nats-io/nats.go v1.39.1
 	github.com/sbezverk/tools v0.0.0-20230714051746-80037ac202cf
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
@@ -32,9 +32,8 @@ require (
 	github.com/jcmturner/gofork v1.7.6 // indirect
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
-	github.com/klauspost/compress v1.17.9 // indirect
-	github.com/nats-io/nats-server/v2 v2.9.23 // indirect
-	github.com/nats-io/nkeys v0.4.6 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/nats-io/nkeys v0.4.10 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
