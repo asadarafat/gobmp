@@ -39,6 +39,10 @@ var (
 	splitAF           string
 	dump              string
 	file              string
+	tcpaoKey          string
+	tcpaoSendID       uint
+	tcpaoRecvID       uint
+	tcpaoAlgo         string
 )
 
 var rootCmd = &cobra.Command{
@@ -68,6 +72,10 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&perfPort, "performance-port", 56767, "port used for performance debugging")
 	rootCmd.PersistentFlags().StringVar(&dump, "dump", "", "Dump resulting messages to file when \"dump=file\", to standard output when \"dump=console\" or to NATS when \"dump=nats\"")
 	rootCmd.PersistentFlags().StringVar(&file, "msg-file", "/tmp/messages.json", "Full path anf file name to store messages when \"dump=file\"")
+	rootCmd.PersistentFlags().StringVar(&tcpaoKey, "tcpao-key", "", "TCP-AO shared key")
+	rootCmd.PersistentFlags().UintVar(&tcpaoSendID, "tcpao-send-id", 0, "TCP-AO sendID")
+	rootCmd.PersistentFlags().UintVar(&tcpaoRecvID, "tcpao-recv-id", 0, "TCP-AO recvID")
+	rootCmd.PersistentFlags().StringVar(&tcpaoAlgo, "tcpao-algo", "hmac(sha256)", "TCP-AO MAC algorithm")
 
 	viper.BindPFlag("source-port", rootCmd.PersistentFlags().Lookup("source-port"))
 	viper.BindPFlag("destination-port", rootCmd.PersistentFlags().Lookup("destination-port"))
@@ -83,6 +91,10 @@ func init() {
 	viper.BindPFlag("performance-port", rootCmd.PersistentFlags().Lookup("performance-port"))
 	viper.BindPFlag("dump", rootCmd.PersistentFlags().Lookup("dump"))
 	viper.BindPFlag("msg-file", rootCmd.PersistentFlags().Lookup("msg-file"))
+	viper.BindPFlag("tcpao-key", rootCmd.PersistentFlags().Lookup("tcpao-key"))
+	viper.BindPFlag("tcpao-send-id", rootCmd.PersistentFlags().Lookup("tcpao-send-id"))
+	viper.BindPFlag("tcpao-recv-id", rootCmd.PersistentFlags().Lookup("tcpao-recv-id"))
+	viper.BindPFlag("tcpao-algo", rootCmd.PersistentFlags().Lookup("tcpao-algo"))
 }
 
 func main() {
@@ -109,6 +121,10 @@ func run() error {
 	perfPort = viper.GetInt("performance-port")
 	dump = viper.GetString("dump")
 	file = viper.GetString("msg-file")
+	tcpaoKey = viper.GetString("tcpao-key")
+	tcpaoSendID = viper.GetUint("tcpao-send-id")
+	tcpaoRecvID = viper.GetUint("tcpao-recv-id")
+	tcpaoAlgo = viper.GetString("tcpao-algo")
 	// Starting performance collecting http server
 	go func() {
 		glog.Info(http.ListenAndServe(fmt.Sprintf(":%d", perfPort), nil))
@@ -162,7 +178,16 @@ func run() error {
 		glog.Errorf("failed to parse to bool the value of the intercept flag with error: %+v", err)
 		os.Exit(1)
 	}
-	bmpSrv, err := gobmpsrv.NewBMPServer(srcPort, dstPort, interceptFlag, publisher, splitAFFlag, nil)
+	aoCfg := &gobmpsrv.TCPAOConfig{
+		Key:    tcpaoKey,
+		SendID: uint8(tcpaoSendID),
+		RecvID: uint8(tcpaoRecvID),
+		Algo:   tcpaoAlgo,
+	}
+	if tcpaoKey == "" {
+		aoCfg = nil
+	}
+	bmpSrv, err := gobmpsrv.NewBMPServer(srcPort, dstPort, interceptFlag, publisher, splitAFFlag, nil, aoCfg)	
 	if err != nil {
 		glog.Errorf("failed to setup new gobmp server with error: %+v", err)
 		os.Exit(1)
@@ -175,7 +200,7 @@ func run() error {
 			glog.Errorf("failed to load TLS configuration: %+v", err)
 			os.Exit(1)
 		}
-		bmpTLSSrv, err = gobmpsrv.NewBMPServer(tlsPort, dstPort, interceptFlag, publisher, splitAFFlag, tlsCfg)
+		bmpTLSSrv, err = gobmpsrv.NewBMPServer(tlsPort, dstPort, interceptFlag, publisher, splitAFFlag, tlsCfg, aoCfg)		
 		if err != nil {
 			glog.Errorf("failed to setup BMPS server with error: %+v", err)
 			os.Exit(1)

@@ -7,13 +7,105 @@ import (
 	"io"
 	"net"
 	"os"
+	"syscall"
+	"unsafe"
 
 	"github.com/golang/glog"
 	"github.com/sbezverk/gobmp/pkg/bmp"
 	"github.com/sbezverk/gobmp/pkg/message"
 	"github.com/sbezverk/gobmp/pkg/parser"
 	"github.com/sbezverk/gobmp/pkg/pub"
+	"golang.org/x/sys/unix"
 )
+
+const (
+	tcpAOAddKey    = 38
+	tcpAOMaxKeyLen = 80
+)
+
+// TCPAOConfig carries TCP-AO parameters.
+type TCPAOConfig struct {
+	Key    string
+	SendID uint8
+	RecvID uint8
+	Algo   string
+}
+
+type tcpAOAdd struct {
+	Addr      unix.SockaddrStorage
+	AlgName   [64]byte
+	IfIndex   int32
+	Flags     uint32
+	Reserved2 uint16
+	Prefix    uint8
+	SndID     uint8
+	RecvID    uint8
+	MacLen    uint8
+	KeyFlags  uint8
+	KeyLen    uint8
+	Key       [tcpAOMaxKeyLen]byte
+}
+
+func applyTCPAOConn(c net.Conn, cfg *TCPAOConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	sc, ok := c.(syscall.Conn)
+	if !ok {
+		return fmt.Errorf("connection does not support SyscallConn")
+	}
+	rc, err := sc.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var innerErr error
+	err = rc.Control(func(fd uintptr) {
+		innerErr = setTCPAO(int(fd), cfg)
+	})
+	if err != nil {
+		return err
+	}
+	return innerErr
+}
+
+func applyTCPAOListener(l net.Listener, cfg *TCPAOConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	tl, ok := l.(*net.TCPListener)
+	if !ok {
+		return fmt.Errorf("listener is not TCP")
+	}
+	sc, err := tl.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var innerErr error
+	err = sc.Control(func(fd uintptr) {
+		innerErr = setTCPAO(int(fd), cfg)
+	})
+	if err != nil {
+		return err
+	}
+	return innerErr
+}
+
+func setTCPAO(fd int, cfg *TCPAOConfig) error {
+	if cfg == nil || cfg.Key == "" {
+		return nil
+	}
+	var add tcpAOAdd
+	copy(add.AlgName[:], []byte(cfg.Algo))
+	add.SndID = cfg.SendID
+	add.RecvID = cfg.RecvID
+	add.KeyLen = uint8(len(cfg.Key))
+	copy(add.Key[:], []byte(cfg.Key))
+	_, _, errno := unix.Syscall6(unix.SYS_SETSOCKOPT, uintptr(fd), uintptr(unix.IPPROTO_TCP), uintptr(tcpAOAddKey), uintptr(unsafe.Pointer(&add)), uintptr(unsafe.Sizeof(add)), 0)
+	if errno != 0 {
+		return os.NewSyscallError("setsockopt", errno)
+	}
+	return nil
+}
 
 // BMPServer defines methods to manage BMP Server
 type BMPServer interface {
@@ -29,6 +121,7 @@ type bmpServer struct {
 	destinationPort int
 	incoming        net.Listener
 	tlsConfig       *tls.Config
+	tcpAO           *TCPAOConfig
 	stop            chan struct{}
 }
 
@@ -56,6 +149,11 @@ func (srv *bmpServer) server() {
 		if err != nil {
 			glog.Errorf("fail to accept client connection with error: %+v", err)
 			continue
+		}
+				if srv.tcpAO != nil {
+			if err := applyTCPAOConn(client, srv.tcpAO); err != nil {
+				glog.Errorf("failed to enable TCP-AO on client %v: %+v", client.RemoteAddr(), err)
+			}
 		}
 		glog.V(5).Infof("client %+v accepted, calling bmpWorker", client.RemoteAddr())
 		go srv.bmpWorker(client)
@@ -151,7 +249,7 @@ func LoadTLSConfig(certFile, keyFile, caFile string) (*tls.Config, error) {
 
 // NewBMPServer instantiates a new instance of BMP Server. If tlsCfg is not nil
 // the server listens for BMPS connections using the provided TLS configuration.
-func NewBMPServer(sPort, dPort int, intercept bool, p pub.Publisher, splitAF bool, tlsCfg *tls.Config) (BMPServer, error) {
+func NewBMPServer(sPort, dPort int, intercept bool, p pub.Publisher, splitAF bool, tlsCfg *tls.Config, tcpAO *TCPAOConfig) (BMPServer, error) {
 	var incoming net.Listener
 	var err error
 	if tlsCfg != nil {
@@ -163,6 +261,9 @@ func NewBMPServer(sPort, dPort int, intercept bool, p pub.Publisher, splitAF boo
 		glog.Errorf("fail to setup listener on port %d with error: %+v", sPort, err)
 		return nil, err
 	}
+	if err := applyTCPAOListener(incoming, tcpAO); err != nil {
+		glog.Errorf("failed to apply TCP-AO on listener: %+v", err)
+	}
 	bmp := bmpServer{
 		stop:            make(chan struct{}),
 		sourcePort:      sPort,
@@ -171,6 +272,7 @@ func NewBMPServer(sPort, dPort int, intercept bool, p pub.Publisher, splitAF boo
 		publisher:       p,
 		incoming:        incoming,
 		tlsConfig:       tlsCfg,
+		tcpAO:           tcpAO,
 		splitAF:         splitAF,
 	}
 
