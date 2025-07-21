@@ -27,7 +27,7 @@ goBMP can run as a standalone binary, in a container, or as a Kubernetes deploym
 * Exposes debugging and performance metrics via `pprof`.
 * Easily deployable in Kubernetes or Docker.
 * [Fork-specific] Support for TLS encryption (BMPS) as per [draft-hmntsharma-bmp-over-tls](https://datatracker.ietf.org/doc/draft-hmntsharma-bmp-over-tls/02/).
-
+* [Fork-specific] Optional TCP Authentication Option (TCP-AO) to authenticate BMP/BMPS sessions.
 ---
 
 ## Supported NLRI and AFI/SAFI
@@ -125,6 +125,23 @@ Packet behaviour on the wire with BMPS enabled - a session begins with a standar
 
 From that point onward, BMP messages are transmitted over the established TLS tunnel just as they would be over a plain TCP connection. The application reads BMP headers and payloads from a net.Conn, which is a tls.Conn in the case of BMPS. As a result, all packets on the wire are encrypted at the transport layer, ensuring both confidentiality and integrity of BMP data.
 
+## TCP-AO Support (Fork Exclusive) - EXPERIMENTAL
+
+goBMP can optionally protect BMP or BMPS sessions with the [TCP Authentication Option (RFC 5925)](https://datatracker.ietf.org/doc/html/rfc5925). The implementation configures TCP-AO on the listening socket and on every accepted connection using Linux's `TCP_AO_ADD_KEY` (setsockopt option `38`).
+
+This feature requires a Linux kernel with TCP-AO support (version 6.7 or newer) and the process must have `CAP_NET_ADMIN` privileges to apply the socket options.
+
+Enable TCP-AO with:
+
+```bash
+--tcpao-key=<shared secret>
+--tcpao-send-id=1
+--tcpao-recv-id=1
+--tcpao-algo=hmac(sha256)
+```
+
+When configured, gobmp authenticates all BMP and BMPS packets at the TCP layer using the provided key and algorithm.
+
 ---
 
 ### Using a YAML Config File
@@ -149,6 +166,10 @@ msg-file: /tmp/messages.json
 
 intercept: false
 split-af: true
+tcpao-key: ""
+tcpao-send-id: 0
+tcpao-recv-id: 0
+tcpao-algo: hmac(sha256)
 ```
 
 Environment variables may also be used. Use uppercase and underscores (e.g., `SOURCE_PORT`, `KAFKA_SERVER`).
