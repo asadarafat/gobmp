@@ -2,6 +2,8 @@ module github.com/sbezverk/gobmp
 
 go 1.23.0
 
+toolchain go1.23.8
+
 require (
 	github.com/IBM/sarama v1.43.3
 	github.com/go-test/deep v1.0.8
